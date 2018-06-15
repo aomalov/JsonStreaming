@@ -1,0 +1,7 @@
+{ "event_type": "bar", "data": "lorem", "timestamp": 1528997716 }
+{ "event_type": "bar", "data": "sit", "timestamp": 1528997716 }
+{ "event_type": "bar", "data": "lorem", "timestamp": 1528997733 }
+{ "event_type": "baz", "data": "lorem", "timestamp": 1528997733 }
+{ "event_type": "baz", "data": "ipsum", "timestamp": 1528997733 }
+ { sldkfjsldkjf ERROR
+{ "event_type": "baz", "data": "dolor", "timestamp": 1528997733 }
