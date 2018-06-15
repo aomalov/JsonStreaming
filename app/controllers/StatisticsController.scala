@@ -15,7 +15,7 @@ class StatisticsController @Inject()(cc: ControllerComponents,
                                      )(implicit exec: ExecutionContext) extends AbstractController(cc) {
 
   def getEventCount = Action.async {
-    Future(Ok(Json.parse(s"""{"totalEvents":${streamer.getEventCount}}""")))
+    Future(Ok(Json.toJson(streamer.getEventCount)))
   }
 
   def getWordCount = Action.async {

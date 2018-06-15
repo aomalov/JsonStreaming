@@ -12,7 +12,7 @@ import play.api.libs.json.Json
 
 trait JStreamer {
   def getWordSummary:Seq[WordSummary]
-  def getEventCount:Long
+  def getEventCount:Seq[EventSummary]
 }
 
 case class WordSummary(word: String, count: Long)
@@ -31,8 +31,8 @@ class JStreamerImpl @Inject() (appLifecycle: ApplicationLifecycle,
     List(WordSummary("lorem",1),WordSummary("ipsum",2))
   }
 
-  override def getEventCount: Long = {
-    15
+  override def getEventCount: Seq[EventSummary] = {
+    List(EventSummary("foo",1),EventSummary("baz",453))
   }
 
 

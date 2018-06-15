@@ -18,7 +18,7 @@ object StreamRunner extends App {
 
   def runStream = {
 
-    val data: Source[String,NotUsed] = Source.fromIterator(()=>IOSource.fromResource("json-stream-correct.txt").getLines())
+    val data: Source[String,NotUsed] = Source.fromIterator(()=>IOSource.fromResource("json-stream-real.txt").getLines())
 
     val flow : Flow[String,String,NotUsed] = Flow[String]
       .map { str =>
