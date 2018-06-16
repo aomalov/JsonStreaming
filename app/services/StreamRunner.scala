@@ -20,16 +20,18 @@ object StreamRunner extends App {
 
     val data: Source[String,NotUsed] = Source.fromIterator(()=>IOSource.fromResource("json-stream-real.txt").getLines())
 
-    val flow : Flow[String,String,NotUsed] = Flow[String]
+    val flow  = Flow[String]
       .map { str =>
         Try(Json.parse(str).as[InputData])
       }
-      .map {
-        case Success(input) => input.toString
-        case Failure(ex) => s"Error input line [${ex.getMessage}]"
-      }
+//      .map {
+//        case Success(input) => input.toString
+//        case Failure(ex) => s"Error input line [${ex.getMessage}]"
+//      }
 
-    data.via(flow).runForeach(println)
+    //TODO - conflate on every second - to send updates to Actor who archives the running results
+    //Send HTTP requests to the Actor, for he got eventual results
+    data.via(flow).via(new StatsAggregator()).runForeach(println)
       .onComplete(_=>actorSystem.terminate)
   }
 

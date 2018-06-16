@@ -1,14 +1,8 @@
 package services
 
-import java.nio.file.Paths
-
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.{FileIO, Sink, Source}
 import javax.inject._
-import model.InputData
-import play.api.Logger
 import play.api.inject.ApplicationLifecycle
-import play.api.libs.json.Json
 
 trait JStreamer {
   def getWordSummary:Seq[WordSummary]

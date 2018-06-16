@@ -14,6 +14,7 @@ class ApplicationTimer @Inject() (clock: Clock, appLifecycle: ApplicationLifecyc
   private val start: Instant = clock.instant
   Logger.info(s"ApplicationTimer demo: Starting application at $start.")
 
+  //TODO add KillSwitch to stop Akka stream on shutdown
   appLifecycle.addStopHook { () =>
     val stop: Instant = clock.instant
     val runningTime: Long = stop.getEpochSecond - start.getEpochSecond
