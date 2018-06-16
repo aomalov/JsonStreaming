@@ -1,4 +1,4 @@
-package services
+package flow
 
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
@@ -9,7 +9,7 @@ import play.libs.F.Tuple
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
-class StatsAggregator extends GraphStage[FlowShape[Try[InputData],Tuple[String,Long]]] {
+class StatsAggregator(statsToken: InputData=>String) extends GraphStage[FlowShape[Try[InputData],Tuple[String,Long]]] {
 
   val in = Inlet[Try[InputData]]("Aggregator.in")
   val out = Outlet[Tuple[String,Long]]("Aggregator.out")
@@ -25,15 +25,16 @@ class StatsAggregator extends GraphStage[FlowShape[Try[InputData],Tuple[String,L
         override def onPush(): Unit = {
           grab(in) match {
             case Success(input) =>
-              stats.update(input.event_type,stats(input.event_type)+1)
-              push(out,Tuple(input.event_type,stats(input.event_type)))
+              val key:String=statsToken(input)
+              stats.update(key,stats(key)+1)
+              push(out,Tuple(key,stats(key)))
             case Failure(exception) =>
               Logger.warn(s"Bad input [${exception.getMessage}]")
               pull(in)
           }
         }
       })
-      //Passing request stream backwards transparently
+      //Passing request upstream transparently
       setHandler(out, new OutHandler {
         override def onPull(): Unit = {
           pull(in)
