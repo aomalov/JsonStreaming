@@ -7,6 +7,8 @@ import javax.inject._
 import play.api.Logger
 import play.api.inject.ApplicationLifecycle
 
+import scala.concurrent.Future
+
 
 @Singleton
 class AppStarter @Inject()(clock: Clock,
@@ -27,7 +29,7 @@ class AppStarter @Inject()(clock: Clock,
     Logger.info(s"ApplicationTimer demo: Stopping application at ${clock.instant} after ${runningTime}s.")
     akkaManagement.getShutdownSwitch.shutdown()
     akkaManagement.getArchiverActor ! PoisonPill
-    actorSystem.whenTerminated
-//    Future.successful(())
+//    actorSystem.whenTerminated
+    Future.successful(())
   }
 }

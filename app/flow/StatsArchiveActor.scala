@@ -13,7 +13,6 @@ class StatsArchiveActor extends Actor with ActorLogging {
   //TODO generify logic based on StatsRequest trait
   def receive = {
     case EventsUpdate(map) =>
-      log.info(s"Archiver: got events update $map")
       map.foreach {
         case (event, count) => eventStats.update(event, eventStats.getOrElse(event, 0L) + count)
       }
@@ -24,11 +23,9 @@ class StatsArchiveActor extends Actor with ActorLogging {
       }
 
     case EventStatsRequest =>
-      log.info("Archiver: got events request")
       sender() ! Json.toJson(eventStats)
 
     case WordStatsRequest=>
-      log.info("Archiver: got words request")
       sender() ! Json.toJson(wordStats)
 
     case Terminated =>

@@ -1,13 +1,16 @@
 package services
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Flow, Source}
+import akka.stream.{ActorMaterializer, ClosedShape, Inlet, SinkShape}
+import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source, Zip}
+import GraphDSL.Implicits._
+import akka.Done
 import com.google.inject.ImplementedBy
 import flow._
 import javax.inject._
 import model.InputData
 import play.api.libs.json.Json
+import play.libs.F.Tuple
 
 import scala.concurrent.duration._
 import scala.util.Try
@@ -38,20 +41,64 @@ class JStreamerImpl @Inject()(inputStream: JsonInputStream,
 
     val ticker = Source.tick(5.millis, 1.second, 1)
 
-    val statsFlow = inputStream.source
-      .via(akkaManagement.getShutdownSwitch.flow)
-      .via(flow)
-      .via(new StatsAggregator(_.event_type))
-      .conflateWithSeed(tuple => Map(tuple._1 -> 1L)) { (m, tuple) =>
-        m + (tuple._1 -> (m.getOrElse(tuple._1, 0L) + 1L))
+    val graph = RunnableGraph.fromGraph( GraphDSL.create() { implicit builder =>
+      val splitterData = builder.add(Broadcast[Try[InputData]](2))
+      val splitterTicks = builder.add(Broadcast[Int](2))
+
+      val throttleEventStats = builder.add(Zip[Int,Map[String,Long]])
+      val throttleWordStats = builder.add(Zip[Int,Map[String,Long]])
+
+      ticker ~> splitterTicks ~> throttleEventStats.in0
+                splitterTicks ~> throttleWordStats.in0
+
+      inputStream.source
+        .via(akkaManagement.getShutdownSwitch.flow)
+        .via(flow) ~> splitterData
+
+      splitterData ~> StatsAggregator(_.event_type) ~>
+        Flow[Tuple[String,Long]].conflateWithSeed(tuple => Map(tuple._1 -> 1L)) { (m, tuple) =>
+          m + (tuple._1 -> (m.getOrElse(tuple._1, 0L) + 1L))
+        } ~> throttleEventStats.in1
+
+      splitterData ~> StatsAggregator(_.data) ~>
+        Flow[Tuple[String,Long]].conflateWithSeed(tuple => Map(tuple._1 -> 1L)) { (m, tuple) =>
+          m + (tuple._1 -> (m.getOrElse(tuple._1, 0L) + 1L))
+        } ~> throttleWordStats.in1
+
+//      val eventsSink: Inlet[(Int,Map[String,Long])] = builder.add(Sink.foreach[(Int,Map[String,Long])]()).in
+
+
+      throttleEventStats.out ~> Sink.foreach[(Int,Map[String,Long])]
+      {
+        case (_, map) =>
+          archiverRef ! EventsUpdate(map)
       }
 
-    //TODO add words statistics (parallel or together ?)
-    ticker.zip(statsFlow).runForeach {
-      case (_, map) =>
-        archiverRef ! EventsUpdate(map)
-    }
-      .flatMap(_ =>actorSystem.terminate())
+      throttleWordStats.out ~> Sink.foreach[(Int,Map[String,Long])]
+      {
+        case (_, map) =>
+          archiverRef ! WordsUpdate(map)
+      }
+
+      ClosedShape
+    })
+
+    graph.run
+
+//    val statsFlow = inputStream.source
+//      .via(akkaManagement.getShutdownSwitch.flow)
+//      .via(flow)
+//      .via(new StatsAggregator(_.event_type))
+//      .conflateWithSeed(tuple => Map(tuple._1 -> 1L)) { (m, tuple) =>
+//        m + (tuple._1 -> (m.getOrElse(tuple._1, 0L) + 1L))
+//      }
+//
+//    //TODO add words statistics (parallel or together ?)
+//    ticker.zip(statsFlow).runForeach {
+//      case (_, map) =>
+//        archiverRef ! EventsUpdate(map)
+//    }
+//      .flatMap(_ =>actorSystem.terminate())
 
   }
 

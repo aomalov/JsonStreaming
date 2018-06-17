@@ -9,7 +9,7 @@ import play.libs.F.Tuple
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
-class StatsAggregator(statsToken: InputData=>String) extends GraphStage[FlowShape[Try[InputData],Tuple[String,Long]]] {
+case class StatsAggregator(statsToken: InputData=>String) extends GraphStage[FlowShape[Try[InputData],Tuple[String,Long]]] {
 
   val in = Inlet[Try[InputData]]("Aggregator.in")
   val out = Outlet[Tuple[String,Long]]("Aggregator.out")
