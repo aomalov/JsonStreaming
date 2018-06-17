@@ -9,10 +9,12 @@ import com.google.inject.ImplementedBy
 import flow._
 import javax.inject._
 import model.InputData
+import play.api.Configuration
 import play.api.libs.json.Json
 import play.libs.F.Tuple
 
 import scala.concurrent.duration._
+import scala.language.postfixOps
 import scala.util.Try
 
 
@@ -24,6 +26,7 @@ trait JStreamer {
 @Singleton
 class JStreamerImpl @Inject()(inputStream: JsonInputStream,
                               implicit val actorSystem: ActorSystem,
+                              config: Configuration,
                               akkaManagement: AkkaManagement) extends JStreamer {
 
   implicit val mat = ActorMaterializer()
@@ -39,7 +42,7 @@ class JStreamerImpl @Inject()(inputStream: JsonInputStream,
 
     val archiverRef = akkaManagement.getArchiverActor
 
-    val ticker = Source.tick(5.millis, 1.second, 1)
+    val ticker = Source.tick(5.millis, config.get[Int]("app.throttling.rate") milliseconds, 1)
 
     val graph = RunnableGraph.fromGraph( GraphDSL.create() { implicit builder =>
       val splitterData = builder.add(Broadcast[Try[InputData]](2))
@@ -65,9 +68,6 @@ class JStreamerImpl @Inject()(inputStream: JsonInputStream,
           m + (tuple._1 -> (m.getOrElse(tuple._1, 0L) + 1L))
         } ~> throttleWordStats.in1
 
-//      val eventsSink: Inlet[(Int,Map[String,Long])] = builder.add(Sink.foreach[(Int,Map[String,Long])]()).in
-
-
       throttleEventStats.out ~> Sink.foreach[(Int,Map[String,Long])]
       {
         case (_, map) =>
@@ -84,22 +84,6 @@ class JStreamerImpl @Inject()(inputStream: JsonInputStream,
     })
 
     graph.run
-
-//    val statsFlow = inputStream.source
-//      .via(akkaManagement.getShutdownSwitch.flow)
-//      .via(flow)
-//      .via(new StatsAggregator(_.event_type))
-//      .conflateWithSeed(tuple => Map(tuple._1 -> 1L)) { (m, tuple) =>
-//        m + (tuple._1 -> (m.getOrElse(tuple._1, 0L) + 1L))
-//      }
-//
-//    //TODO add words statistics (parallel or together ?)
-//    ticker.zip(statsFlow).runForeach {
-//      case (_, map) =>
-//        archiverRef ! EventsUpdate(map)
-//    }
-//      .flatMap(_ =>actorSystem.terminate())
-
   }
 
 
