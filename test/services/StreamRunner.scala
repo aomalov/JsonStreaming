@@ -2,24 +2,25 @@ package services
 
 import akka.NotUsed
 import akka.actor.{ActorSystem, Props}
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.pattern.ask
+import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.{Flow, Source}
 import flow.{EventStatsRequest, EventsUpdate, StatsAggregator, StatsArchiveActor}
 import model.InputData
 import play.api.libs.json.{JsValue, Json}
 
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import scala.concurrent.duration._
 import scala.io.{Source => IOSource}
 import scala.util.Try
-import scala.concurrent.duration._
 
 object StreamRunner extends App {
 
-  implicit val actorSystem = ActorSystem()
-  implicit val materializer = ActorMaterializer()
-  implicit val ec = actorSystem.dispatcher
+  implicit val actorSystem: ActorSystem = ActorSystem()
+  implicit val materializer: ActorMaterializer = ActorMaterializer()
+  implicit val ec: ExecutionContext = actorSystem.dispatcher
 
-  def runStream = {
+  def runStream(): Unit = {
 
     val data: Source[String,NotUsed] = Source.fromIterator(()=>IOSource.fromResource("json-stream-real.txt").getLines())
 

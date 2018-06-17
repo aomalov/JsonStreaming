@@ -5,5 +5,5 @@
 
 GET     /event-count                controllers.StatisticsController.getEventCount
 GET     /words                      controllers.StatisticsController.getWordCount
-
+GET     /stop                       controllers.StatisticsController.stopStats
       
