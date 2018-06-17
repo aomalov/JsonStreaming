@@ -1,6 +1,7 @@
 package flow
 
 import akka.actor.{Actor, ActorLogging, Terminated}
+import play.api.Logger
 import play.api.libs.json.Json
 
 import scala.collection.mutable
@@ -13,11 +14,13 @@ class StatsArchiveActor extends Actor with ActorLogging {
   //TODO generify logic based on StatsRequest trait
   def receive = {
     case EventsUpdate(map) =>
+      Logger.info(s"[Archiver] got update $map")
       map.foreach {
         case (event, count) => eventStats.update(event, eventStats.getOrElse(event, 0L) + count)
       }
 
     case WordsUpdate(map) =>
+      Logger.info(s"[Archiver] got update $map")
       map.foreach {
         case (word, count) => wordStats.update(word, wordStats.getOrElse(word, 0L) + count)
       }

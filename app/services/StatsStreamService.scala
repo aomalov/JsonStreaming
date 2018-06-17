@@ -9,7 +9,7 @@ import com.google.inject.ImplementedBy
 import flow._
 import javax.inject._
 import model.InputData
-import play.api.Configuration
+import play.api.{Configuration, Logger}
 import play.api.libs.json.Json
 import play.libs.F.Tuple
 
@@ -31,18 +31,20 @@ class JStreamerImpl @Inject()(inputStream: JsonInputStream,
 
   implicit val mat = ActorMaterializer()
   implicit val ec = actorSystem.dispatcher
+  private val throttlePeriod=config.get[Int]("app.throttling.rate") milliseconds
 
   override def startStream(): Unit = {
 
     //TODO can be split into X parsing fan-out stage - to get messages parsed in parallel (order is not important)
     val flow = Flow[String]
       .map { str =>
+        Logger.info(s"Got message [$str]")
         Try(Json.parse(str).as[InputData])
       }
 
     val archiverRef = akkaManagement.getArchiverActor
 
-    val ticker = Source.tick(5.millis, config.get[Int]("app.throttling.rate") milliseconds, 1)
+    val ticker = Source.tick(5.millis,  throttlePeriod, 1)
 
     val graph = RunnableGraph.fromGraph( GraphDSL.create() { implicit builder =>
       val splitterData = builder.add(Broadcast[Try[InputData]](2))
@@ -59,14 +61,18 @@ class JStreamerImpl @Inject()(inputStream: JsonInputStream,
         .via(flow) ~> splitterData
 
       splitterData ~> StatsAggregator(_.event_type) ~>
-        Flow[Tuple[String,Long]].conflateWithSeed(tuple => Map(tuple._1 -> 1L)) { (m, tuple) =>
-          m + (tuple._1 -> (m.getOrElse(tuple._1, 0L) + 1L))
-        } ~> throttleEventStats.in1
+        Flow[Tuple[String,Long]].keepAlive(50.milliseconds,()=>Tuple[String,Long]("",0L))
+          .map(tuple=> Map(tuple._1->1L)) ~> throttleEventStats.in1
+//          .conflateWithSeed(tuple => Map(tuple._1 -> 1L)) { (m, tuple) =>
+//          m + (tuple._1 -> (m.getOrElse(tuple._1, 0L) + 1L))
+//        } ~> throttleEventStats.in1
 
       splitterData ~> StatsAggregator(_.data) ~>
-        Flow[Tuple[String,Long]].conflateWithSeed(tuple => Map(tuple._1 -> 1L)) { (m, tuple) =>
-          m + (tuple._1 -> (m.getOrElse(tuple._1, 0L) + 1L))
-        } ~> throttleWordStats.in1
+        Flow[Tuple[String,Long]]
+          .map(tuple=> Map(tuple._1->1L)) ~> throttleWordStats.in1
+//          .conflateWithSeed(tuple => Map(tuple._1 -> 1L)) { (m, tuple) =>
+//          m + (tuple._1 -> (m.getOrElse(tuple._1, 0L) + 1L))
+//        } ~> throttleWordStats.in1
 
       throttleEventStats.out ~> Sink.foreach[(Int,Map[String,Long])]
       {

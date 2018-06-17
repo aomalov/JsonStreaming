@@ -22,7 +22,7 @@ object StreamRunner extends App {
 
   def runStream(): Unit = {
 
-    val data: Source[String,NotUsed] = Source.fromIterator(()=>IOSource.fromResource("json-stream-real.txt").getLines())
+    val data: Source[String,NotUsed] = Source.fromIterator(()=>IOSource.fromResource("samples/json-stream-real.txt").getLines())
 
     val flow  = Flow[String]
       .map { str =>
