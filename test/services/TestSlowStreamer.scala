@@ -4,11 +4,12 @@ import akka.NotUsed
 import akka.pattern._
 import akka.stream.scaladsl.Source
 import akka.util.Timeout
-import flow.{EventStatsRequest, JsonInputStream, JsonInputStreamFastTestImpl}
+import flow.{EventStatsRequest, JsonInputStream}
 import org.scalatest.WordSpecLike
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatestplus.play.PlaySpec
 import org.scalatestplus.play.guice.GuiceOneAppPerSuite
+import play.api.Application
 import play.api.inject.bind
 import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.json._
@@ -25,7 +26,7 @@ case object InputMock extends JsonInputStream {
 
 class TestSlowStreamer extends PlaySpec with GuiceOneAppPerSuite with WordSpecLike with ScalaFutures {
 
-  override def fakeApplication() = {
+  override def fakeApplication(): Application = {
     new GuiceApplicationBuilder()
       .configure(Map("app.design.fast-producer" -> false))
       .overrides(bind[JsonInputStream].toInstance(InputMock))
@@ -35,7 +36,7 @@ class TestSlowStreamer extends PlaySpec with GuiceOneAppPerSuite with WordSpecLi
   implicit val timeout: Timeout = 1.second
   //    implicit val pc=PatienceConfiguration()
 
-  val akkaManagement = app.injector.instanceOf[AkkaManagement]
+  private val akkaManagement = app.injector.instanceOf[AkkaManagement]
 
   "App with slow producer" should {
     "get running event stats from Archiver Actor" in {

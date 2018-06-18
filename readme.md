@@ -11,9 +11,9 @@
 
 ```json
 { 
-  "event_type": "baz",      //String
-  "data": "amet",           //String (contains one word only ?)
-  "timestamp": 1529312846   //Long
+  "event_type": "baz",     
+  "data": "amet",           
+  "timestamp": 1529312846   
 }
 ```
 
@@ -31,7 +31,7 @@ Milliseconds to conflate running stats
 - `app.request.timeout = 3000` 
 Async request for statistics timeout limitation (ms)
 - `app.design.fast-producer=true` 
-Build regular pipelane or conflated (allowing for fast independent producer)
+Build regular pipeline or conflated (allowing for fast independent producer)
 
 
 ## Build and run instructions
@@ -50,5 +50,5 @@ Executable files could be found in *./target/universal/stage/bin/* folder
 
 ### Run fast with capture file
 ```bash
-cat ~/Documents/generatored.txt  |  ./target/universal/stage/bin/jsonstreaming```
+cat ~/Documents/generated.txt  |  ./target/universal/stage/bin/jsonstreaming -DFAST_PRODUCER=true```
 ```

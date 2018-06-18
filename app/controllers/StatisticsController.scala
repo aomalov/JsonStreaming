@@ -36,8 +36,4 @@ class StatisticsController @Inject()(cc: ControllerComponents,
 
   def getWordCount = askArchiver(WordStatsRequest)
 
-  def stopStats = Action {
-    akkaManagement.getShutdownSwitch.shutdown()
-    Ok("stopped")
-  }
 }
