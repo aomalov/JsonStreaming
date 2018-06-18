@@ -2,15 +2,14 @@ package services
 
 import akka.actor.ActorSystem
 import akka.stream._
+import akka.stream.scaladsl.GraphDSL.Implicits._
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source, Zip}
-import GraphDSL.Implicits._
-import akka.Done
 import com.google.inject.ImplementedBy
 import flow._
 import javax.inject._
 import model.InputData
-import play.api.{Configuration, Logger}
 import play.api.libs.json.Json
+import play.api.{Configuration, Logger}
 import play.libs.F.Tuple
 
 import scala.concurrent.duration._
@@ -61,9 +60,9 @@ class JStreamerImpl @Inject()(inputStream: JsonInputStream,
   }
 
   private def speedyGraph ={
-    val throttlePeriod=config.get[Int]("app.throttling.rate") milliseconds
+    val statsUpdatePeriod=config.get[Int]("app.throttling.rate") milliseconds
 
-    val ticker = Source.tick(5.millis,  throttlePeriod, 1)
+    val ticker = Source.tick(5.millis,  statsUpdatePeriod, 1)
 
     RunnableGraph.fromGraph( GraphDSL.create() { implicit builder =>
       val splitterData = builder.add(Broadcast[Try[InputData]](2))
