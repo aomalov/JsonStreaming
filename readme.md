@@ -45,10 +45,10 @@ Executable files could be found in *./target/universal/stage/bin/* folder
 
 ### Run with slow generator
 ```bash
-~/Documents/generator-macosx-amd64  |  ./target/universal/stage/bin/jsonstreaming```
+~/Documents/generator-macosx-amd64  |  ./target/universal/stage/bin/jsonstreaming
 ```
 
 ### Run fast with capture file
 ```bash
-cat ~/Documents/generated.txt  |  ./target/universal/stage/bin/jsonstreaming -DFAST_PRODUCER=true```
+cat ~/Documents/generated.txt  |  ./target/universal/stage/bin/jsonstreaming -DFAST_PRODUCER=true
 ```
