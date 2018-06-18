@@ -19,10 +19,10 @@
 
 ## API
 
-|Method| URL               | Description |
-|---   | -----------       | ----------- |
-|GET   | /words            | `{"lorem":5,"ipsum":5}`       |
-|GET   | /event-count      | `{"foo":100,"bar":455}`        |
+|Method| URL               | Output                  | Description    |
+|---   | -----------       | -----------             |----------------|
+|GET   | /words            | `{"lorem":5,"ipsum":5}` | count by data field |
+|GET   | /event-count      | `{"foo":100,"bar":455}` | count by event type field |
 
 ## Configuration params (application.conf)
 
@@ -52,3 +52,6 @@ Executable files could be found in *./target/universal/stage/bin/* folder
 ```bash
 cat ~/Documents/generated.txt  |  ./target/universal/stage/bin/jsonstreaming -DFAST_PRODUCER=true
 ```
+
+### Watch the stats
+```http://localhost:9000/[URL]```
