@@ -25,7 +25,7 @@ case class StatsAggregator(statsToken: InputData=>String) extends GraphStage[Flo
         override def onPush(): Unit = {
           grab(in) match {
             case Success(input) =>
-              Logger.info(s"GOT object $input")
+              Logger.debug(s"GOT object $input")
               val key:String=statsToken(input)
               stats.update(key,stats(key)+1)
               push(out,Tuple(key,stats(key)))

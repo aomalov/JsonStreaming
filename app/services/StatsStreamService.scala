@@ -1,7 +1,7 @@
 package services
 
 import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer, ClosedShape, Inlet, SinkShape}
+import akka.stream._
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink, Source, Zip}
 import GraphDSL.Implicits._
 import akka.Done
@@ -31,65 +31,90 @@ class JStreamerImpl @Inject()(inputStream: JsonInputStream,
 
   implicit val mat = ActorMaterializer()
   implicit val ec = actorSystem.dispatcher
-  private val throttlePeriod=config.get[Int]("app.throttling.rate") milliseconds
 
-  override def startStream(): Unit = {
+  //TODO may be split into X parsing fan-out stage - to get messages parsed in parallel (order is not important)
+  private val parsedFlow = Flow[String]
+    .map { str =>
+      Logger.debug(s"Got message [$str]")
+      Try(Json.parse(str).as[InputData])
+    }
 
-    //TODO can be split into X parsing fan-out stage - to get messages parsed in parallel (order is not important)
-    val flow = Flow[String]
-      .map { str =>
-        Logger.info(s"Got message [$str]")
-        Try(Json.parse(str).as[InputData])
-      }
+  private val archiverRef = akkaManagement.getArchiverActor
 
-    val archiverRef = akkaManagement.getArchiverActor
 
-    val ticker = Source.tick(5.millis,  throttlePeriod, 1)
-
-    val graph = RunnableGraph.fromGraph( GraphDSL.create() { implicit builder =>
+  private def simpleGraph = {
+    RunnableGraph.fromGraph( GraphDSL.create() { implicit builder =>
       val splitterData = builder.add(Broadcast[Try[InputData]](2))
-      val splitterTicks = builder.add(Broadcast[Int](2))
-
-      val throttleEventStats = builder.add(Zip[Int,Map[String,Long]])
-      val throttleWordStats = builder.add(Zip[Int,Map[String,Long]])
-
-      ticker ~> splitterTicks ~> throttleEventStats.in0
-                splitterTicks ~> throttleWordStats.in0
 
       inputStream.source
         .via(akkaManagement.getShutdownSwitch.flow)
-        .via(flow) ~> splitterData
+        .via(parsedFlow) ~> splitterData
 
       splitterData ~> StatsAggregator(_.event_type) ~>
-        Flow[Tuple[String,Long]].keepAlive(50.milliseconds,()=>Tuple[String,Long]("",0L))
-          .map(tuple=> Map(tuple._1->1L)) ~> throttleEventStats.in1
-//          .conflateWithSeed(tuple => Map(tuple._1 -> 1L)) { (m, tuple) =>
-//          m + (tuple._1 -> (m.getOrElse(tuple._1, 0L) + 1L))
-//        } ~> throttleEventStats.in1
+        Sink.foreach[Tuple[String,Long]](tuple => archiverRef ! EventsUpdate(Map(tuple._1->tuple._2)))
+
+      splitterData ~> StatsAggregator(_.data) ~>
+        Sink.foreach[Tuple[String,Long]](tuple => archiverRef ! WordsUpdate(Map(tuple._1->tuple._2)))
+
+      ClosedShape
+    })
+  }
+
+  private def speedyGraph ={
+    val throttlePeriod=config.get[Int]("app.throttling.rate") milliseconds
+
+    val ticker = Source.tick(5.millis,  throttlePeriod, 1)
+
+    RunnableGraph.fromGraph( GraphDSL.create() { implicit builder =>
+      val splitterData = builder.add(Broadcast[Try[InputData]](2))
+      val splitterTicks = builder.add(Broadcast[Int](2))
+
+      val zipEventStats = builder.add(Zip[Int,Map[String,Long]])
+      val zipWordStats = builder.add(Zip[Int,Map[String,Long]])
+
+      ticker ~> splitterTicks ~> zipEventStats.in0
+      splitterTicks ~> zipWordStats.in0
+
+      inputStream.source
+        .via(akkaManagement.getShutdownSwitch.flow)
+        .via(parsedFlow) ~> splitterData
+
+      splitterData ~> StatsAggregator(_.event_type) ~>
+        Flow[Tuple[String,Long]]
+                .conflateWithSeed(tuple => Map(tuple._1 -> 1L)) { (m, tuple) =>
+                m + (tuple._1 -> (m.getOrElse(tuple._1, 0L) + 1L))
+              } ~> zipEventStats.in1
 
       splitterData ~> StatsAggregator(_.data) ~>
         Flow[Tuple[String,Long]]
-          .map(tuple=> Map(tuple._1->1L)) ~> throttleWordStats.in1
-//          .conflateWithSeed(tuple => Map(tuple._1 -> 1L)) { (m, tuple) =>
-//          m + (tuple._1 -> (m.getOrElse(tuple._1, 0L) + 1L))
-//        } ~> throttleWordStats.in1
+                .conflateWithSeed(tuple => Map(tuple._1 -> 1L)) { (m, tuple) =>
+                m + (tuple._1 -> (m.getOrElse(tuple._1, 0L) + 1L))
+              } ~> zipWordStats.in1
 
-      throttleEventStats.out ~> Sink.foreach[(Int,Map[String,Long])]
-      {
-        case (_, map) =>
-          archiverRef ! EventsUpdate(map)
-      }
+      zipEventStats.out ~> Sink.foreach[(Int,Map[String,Long])]
+        {
+          case (_, map) =>
+            archiverRef ! EventsUpdate(map)
+        }
 
-      throttleWordStats.out ~> Sink.foreach[(Int,Map[String,Long])]
-      {
-        case (_, map) =>
-          archiverRef ! WordsUpdate(map)
-      }
+      zipWordStats.out ~> Sink.foreach[(Int,Map[String,Long])]
+        {
+          case (_, map) =>
+            archiverRef ! WordsUpdate(map)
+        }
 
       ClosedShape
     })
 
-    graph.run
+  }
+
+  override def startStream(): Unit = {
+
+    if (config.get[Boolean]("app.design.fast-producer")) {
+      speedyGraph.run
+    } else {
+      simpleGraph.run
+    }
   }
 
 
