@@ -28,7 +28,7 @@ case class StatsAggregator(statsToken: InputData=>String) extends GraphStage[Flo
               Logger.debug(s"GOT object $input")
               val key:String=statsToken(input)
               stats.update(key,stats(key)+1)
-              push(out,Tuple(key,stats(key)))
+              push(out,Tuple(key,1L))
             case Failure(exception) =>
               Logger.warn(s"Bad input [${exception.getMessage}]")
               pull(in)
