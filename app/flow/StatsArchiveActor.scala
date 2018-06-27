@@ -8,6 +8,7 @@ import scala.collection.mutable
 
 class StatsArchiveActor extends Actor with ActorLogging {
 
+  //TODO change to immutable state with context.become
   var eventStats: mutable.Map[String, Long] = mutable.HashMap.empty[String, Long] withDefaultValue 0
   var wordStats: mutable.Map[String, Long] = mutable.HashMap.empty[String, Long] withDefaultValue 0
 
@@ -26,7 +27,7 @@ class StatsArchiveActor extends Actor with ActorLogging {
       }
 
     case EventStatsRequest =>
-      sender() ! Json.toJson(eventStats)
+      sender() ! eventStats.toJson
 
     case WordStatsRequest=>
       sender() ! Json.toJson(wordStats)
