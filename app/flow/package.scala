@@ -4,8 +4,8 @@ import play.api.libs.json.{JsValue, Json}
 import scala.collection.mutable
 
 package object flow {
-  implicit object JsonOpsForMap extends Jsonable[mutable.Map[String,Long]] {
-    override def convertToJson(obj: mutable.Map[String, Long]): JsValue = Json.toJson(obj)
+  implicit object JsonOpsForMap extends Jsonable[Map[String,Long]] {
+    override def convertToJson(obj: Map[String, Long]): JsValue = Json.toJson(obj)
   }
 
   implicit class JsonOpsHelper[T:Jsonable](obj:T) {

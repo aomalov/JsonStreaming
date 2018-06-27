@@ -8,32 +8,28 @@ import scala.collection.mutable
 
 class StatsArchiveActor extends Actor with ActorLogging {
 
-  //TODO change to immutable state with context.become
-  var eventStats: mutable.Map[String, Long] = mutable.HashMap.empty[String, Long] withDefaultValue 0
-  var wordStats: mutable.Map[String, Long] = mutable.HashMap.empty[String, Long] withDefaultValue 0
+  def receive: Receive = statsActions(Map(EventStatsRequest->Map.empty[String,Long],WordStatsRequest->Map.empty[String,Long]))
 
-  //TODO generify logic based on StatsRequest trait
-  def receive = {
+  def statsActions(data: Map[StatsRequest,Map[String,Long]]): Receive = {
     case EventsUpdate(map) =>
-      Logger.debug(s"[Archiver] got update $map")
-      map.foreach {
-        case (event, count) => eventStats.update(event, eventStats.getOrElse(event, 0L) + count)
-      }
+      chageState(EventStatsRequest,map,data)
 
     case WordsUpdate(map) =>
-      Logger.debug(s"[Archiver] got update $map")
-      map.foreach {
-        case (word, count) => wordStats.update(word, wordStats.getOrElse(word, 0L) + count)
-      }
+      chageState(WordStatsRequest,map,data)
 
-    case EventStatsRequest =>
-      sender() ! eventStats.toJson
-
-    case WordStatsRequest=>
-      sender() ! Json.toJson(wordStats)
+    case requestSignal:StatsRequest=>
+      sender() ! data(requestSignal).toJson
 
     case Terminated =>
       context stop self
+  }
+
+  private def chageState(request: StatsRequest, map:Map[String,Long],data: Map[StatsRequest,Map[String,Long]]): Unit = {
+    Logger.debug(s"[Archiver] got update $map")
+    val updatedEventStats=map.foldLeft(data(request)) {
+      case (m,(key,value))=> m.updated(key,m.getOrElse(key,0L)+value)
+    }
+    context.become(statsActions(data++Map(request->updatedEventStats)))
   }
 }
 
